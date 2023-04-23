@@ -31,5 +31,5 @@ To run the bot, run the `run.cmd` in the folder inside
 
 ## Authors
 
-EagleEyea
+EagleEye / DCS World Indonesia
 
