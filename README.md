@@ -16,7 +16,7 @@ To use this bot, you need to have the following software installed:
 
 * Install the required Python modules by running the following command in the terminal: `pip install -r requirements.txt`
 
-* Create a config.ini file in the same directory as the script, with the following content:
+* Create a `config.ini` file in the same directory as the script, with the following content:
     ```[BOT]
     TOKEN = <your Discord bot token>
     CHANNEL_ID = <Discord channel ID>
