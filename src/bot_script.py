@@ -8,6 +8,7 @@ from subprocess import Popen, PIPE
 from discord.ext import commands
 import datetime
 import time
+import asyncio
 
 
 # load config
@@ -20,6 +21,7 @@ SOFTWARE_PATH = config.get('BOT', 'SOFTWARE_PATH')
 DEBUG = config.getboolean('BOT', 'DEBUG')
 LOG_FILENAME = 'logs/log.txt'
 LOG_LEVEL = logging.DEBUG if DEBUG else logging.INFO
+AUTO_RESTART = config.getboolean('BOT', 'AUTO_RESTART')
 
 # set up logging
 logging.basicConfig(level=LOG_LEVEL,
@@ -36,6 +38,38 @@ intents.typing = True
 
 bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
 
+async def start_software():
+    software = os.path.abspath(SOFTWARE_PATH)
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="DCS Server"))
+    process = Popen([software], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    return process
+
+def stop_software():
+    logging.info('Stopping software...')
+    subprocess.call('TASKKILL /F /IM DCS_server.exe /T')
+    logging.info('Software stopped.')
+    bot.loop.create_task(bot.change_presence(activity=None))
+
+async def restart_software():
+    logging.info('Restarting software...')
+    stop_software()
+    await asyncio.sleep(5)
+    process = await start_software()
+    logging.info('Software restarted.')
+    return process
+
+async def auto_restart():
+    while True:
+        await asyncio.sleep(6 * 60 * 60)  # Wait 6 hours
+        # await asyncio.sleep(2 * 60)  # Wait 2 minutes # this one for checking
+        await restart_software()
+        auto_restart_chnl = bot.get_channel(CHANNEL_ID)
+        if auto_restart_chnl is None:
+            auto_restart_msg = "Performing automatic restart..."
+            logging.info(auto_restart_msg)
+            await auto_restart_chnl.send(auto_restart_msg)
+        
+
 @bot.event
 async def on_ready():
     logging.info("Logged in as")
@@ -49,25 +83,12 @@ async def on_ready():
         message = "Bot is now online and ready!"
         logging.info(message)
         await channel.send(message)
-
-def start_software():
-    software = os.path.abspath(SOFTWARE_PATH)
-    Popen([software], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-
-def stop_software():
-    logging.info('Stopping software...')
-    subprocess.call('TASKKILL /F /IM DCS_server.exe /T')
-    logging.info('Software stopped.')
-
-def restart_software():
-    logging.info('Restarting software...')
-    subprocess.call('TASKKILL /F /IM DCS_server.exe /T')
-    subprocess.Popen(SOFTWARE_PATH)
-    logging.info('Software restarted.')
+    if AUTO_RESTART:
+        bot.loop.create_task(auto_restart())
 
 @bot.command()
 async def start(ctx):
-    start_software()
+    await start_software()
     await ctx.send('Software started.')
 
 @bot.command()
@@ -77,9 +98,9 @@ async def stop(ctx):
 
 @bot.command()
 async def restart(ctx):
-    restart_software()
+    process = await restart_software()
     await ctx.send('Software restarted.')
-
+    
 @bot.command()
 async def status(ctx):
     # Check if software is running
